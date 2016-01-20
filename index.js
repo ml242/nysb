@@ -5,30 +5,26 @@
 		mysql = require('mysql'),
 		fs = require('fs');
 
-		var connection = mysql.createPool({
+		var connection = mysql.createConnection({
 			host: 'localhost',
 			user: 'root',
 			port: 3306,
-			password: '',
+			password: 'password',
 			database: 'nyskiblog',
 			multipleStatements: true
 		});
+		connection.connect()
 
 		for(let page = 271; page >= 0; page--){
 
 			let url = 'http://nyskiblog.com/page/' + page  + '/';
+
 			request(url, function (error, response, body) {
-				connection.getConnection(function (err, response) {
-					if (!err) {
-						console.log("Database is connected ... \n\n");
-					} else {
-						console.log("Error connecting database ... \n\n" + err);
-					}
-				});
+
 				if (!error) {
 					console.log("working on: " + url)
 					var $ = cheerio.load(body, {
-						normalizeWhitespace: true
+						normalizeWhitespace: false
 					});
 
 					let scrapePost = function(post){
@@ -40,14 +36,38 @@
 						var tags = $(post).find('.cat-links a').each(function(i, tag){
 							string += $(tag).text()	+ ", "
 						});
-						return {url: url, title: title, author: author, date: date, tags: string}			 
+
+
+						var query = connection.query("INSERT INTO nyskiblog.posts (url, date, author, tags, title) VALUES ( " + "'"+ url + "'" + "," + "'" + date + "'" + "," + "'" + author + "'" + "," + "'" + string + "'"+ "," + "'"+ title+ "'" +");", function(error, rows, fields) {
+
+							if (error)
+								console.log(error.message)
+
+							if (rows)
+								console.log(rows)
+
+							if (fields){
+								console.log(fields)
+							}
+
+						});
+
+
+
+
+
+						return {url: url, title: title, author: author, date: date, tags: string}
 					}
 
 					$('.post.type-post').each(function(i, post){
 						var scrapedPost = scrapePost(post);
 						fs.writeFile( './posts/' + scrapedPost.title + '.txt', JSON.stringify(scrapedPost), function(err){
-							if (err) console.log(err)
-								console.log('writing file')
+
+							if (err)
+								console.log(err)
+
+							// console.log('writing file')
+
 						})
 					})
 				// connection.query.insert(posts)
@@ -60,7 +80,7 @@
 				console.log("We’ve encountered an error: " + error);
 			}
 
-		});	
+		});
 
 	}
 
